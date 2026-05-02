@@ -1,0 +1,37 @@
+# T500OS .gitignore
+# Build outputs are not committed (DESIGN.md §25.4).
+
+# Build directory
+build/
+
+# Object and binary artifacts
+*.o
+*.obj
+*.a
+*.elf
+*.bin
+*.iso
+*.map
+
+# Captured runs
+serial-*.log
+serial.log
+qemu.log
+qmp.sock
+screen*.ppm
+vgafb.bin
+
+# Editor / IDE junk
+*.swp
+*.swo
+*~
+.DS_Store
+.vscode/
+.idea/
+tags
+.cache/
+
+# Python (test harness)
+__pycache__/
+*.pyc
+.pytest_cache/
