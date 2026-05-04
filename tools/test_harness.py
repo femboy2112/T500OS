@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# T500OS test harness — commit 2b.
+# T500OS test harness — commit 3.
 #
-# Per docs/PLAN-v0.0.md commit 2b: this revision boots the ISO under QEMU
-# with COM1 captured to build/serial.log and asserts that the literal
-# string "T500OS v0.0" is present in the captured serial output. Build
-# artifacts are still verified to exist; full multi-line banner / VGA /
-# panic checks are added in commits 3, 4, and 5 respectively.
+# Per docs/PLAN-v0.0.md commit 3: this revision boots the ISO under QEMU
+# with COM1 captured to build/serial.log and asserts that the full
+# multi-line boot banner from CLAUDE.md §3 is present, in order, in the
+# captured serial output. Build artifacts are still verified to exist;
+# VGA mirroring / panic checks land in commits 4 and 5 respectively.
 #
 # Exit code: 0 on success, 1 on failure. CLAUDE.md §4 / DESIGN.md §26A.2
 # heartbeat: `make test-qemu` must exit 0 before any commit lands.
@@ -28,10 +28,22 @@ SERIAL_LOG = BUILD_DIR / "serial.log"
 
 QEMU_TIMEOUT_SECONDS = 5
 
-# Banner contract (CLAUDE.md §3): the literal first line of the boot
-# banner. Commit 2b only checks for this prefix; commit 3 will assert the
-# full multi-line banner once printk lands.
+# Banner contract (CLAUDE.md §3): the full multi-line banner that printk
+# emits in commit 3. The harness asserts that each of these substrings is
+# present in build/serial.log AND that they appear in the listed order.
+# Commits 4+ extend this to a byte-identical VGA mirror check.
 BANNER_LITERAL = "T500OS v0.0"
+EXPECTED_LINES = (
+    "T500OS v0.0",
+    "Target: Lenovo ThinkPad T500",
+    "Mode: x86_64 long mode",
+    "Boot: Multiboot2 via GRUB",
+    "Serial: active",
+    "Display: VGA text",
+    "Panic path: active",
+    "Memory map: initializing",
+    "T5L prompt pending",
+)
 
 # QEMU's -d int log spams INT lines for legitimate BIOS / GRUB activity
 # (real-mode INT 0x10 video, INT 0x13 disk). Those are not errors; do
@@ -115,6 +127,12 @@ def check_qemu_log() -> None:
     info(f"qemu.log clean ({QEMU_LOG.stat().st_size} bytes)")
 
 
+def _dump_serial(text: str) -> None:
+    sys.stderr.write("--- serial.log (decoded) ---\n")
+    sys.stderr.write(text)
+    sys.stderr.write("\n--- end serial.log ---\n")
+
+
 def check_serial_log() -> None:
     if not SERIAL_LOG.is_file():
         fail(f"missing serial capture: {SERIAL_LOG.relative_to(ROOT)}")
@@ -122,12 +140,21 @@ def check_serial_log() -> None:
     if not raw:
         fail(f"empty serial capture: {SERIAL_LOG.relative_to(ROOT)}")
     text = raw.decode("ascii", errors="replace")
+
     if BANNER_LITERAL not in text:
-        sys.stderr.write("--- serial.log (decoded) ---\n")
-        sys.stderr.write(text)
-        sys.stderr.write("\n--- end serial.log ---\n")
+        _dump_serial(text)
         fail(f"banner literal {BANNER_LITERAL!r} not found in serial.log")
-    info(f"serial.log contains banner literal {BANNER_LITERAL!r} "
+
+    cursor = 0
+    for line in EXPECTED_LINES:
+        idx = text.find(line, cursor)
+        if idx == -1:
+            _dump_serial(text)
+            fail(f"banner line {line!r} not found in serial.log "
+                 f"(searched from offset {cursor})")
+        cursor = idx + len(line)
+
+    info(f"serial.log contains all {len(EXPECTED_LINES)} banner lines in order "
          f"({len(raw)} bytes captured)")
 
 
@@ -136,7 +163,7 @@ def main() -> int:
     run_qemu()
     check_qemu_log()
     check_serial_log()
-    info("OK (commit 2b — banner first line asserted on serial)")
+    info("OK (commit 3 — full banner asserted on serial)")
     return 0
 
 
