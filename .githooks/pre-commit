@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# T500OS pre-commit hook (per docs/PLAN-v0.0.md commit 6).
+#
+# Enforces the heartbeat from CLAUDE.md §4 / DESIGN.md §26A.2: every
+# code-bearing commit must leave `make test-qemu` at exit 0. If the boot
+# mode harness fails, the commit is refused and the working tree is
+# left untouched so the contributor can investigate.
+#
+# Why test-qemu only, not also test-panic:
+#   - `make test-panic` builds a separate object tree and a separate ISO
+#     with -DT500_PANIC_TEST. Running it on every commit roughly doubles
+#     the per-commit wall time without catching new regressions beyond
+#     what `test-qemu` already catches: the panic path and the normal
+#     boot path are independent code surfaces in v0.0.
+#   - `test-panic` will return to this hook (or to a future
+#     `make test-regression`) only when v0.1 introduces real exception
+#     handlers that share code paths with panic(). Until then, run it
+#     manually before tagging milestones — see docs/PLAN-v0.0.md
+#     commits 5 and 7 for the manual gate.
+#
+# Install path: this hook is sourced from a tracked directory rather
+# than from the default `.git/hooks/` so it is reviewable in PRs and
+# survives fresh clones. Activate with `make hooks-install`.
+#
+# To bypass intentionally (rare — usually for doc-only commits noted in
+# the message body), pass `--no-verify` to `git commit`. CLAUDE.md §4
+# permits doc-only commits to skip the heartbeat provided the commit
+# message says so.
+
+set -euo pipefail
+
+# Locate the repo root so the hook works from worktrees and from
+# subdirectory invocations alike. `git rev-parse --show-toplevel` is
+# guaranteed to print the top of the working tree under a hook.
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+echo "[pre-commit] running heartbeat: make test-qemu" >&2
+if ! make --no-print-directory test-qemu; then
+    echo "" >&2
+    echo "[pre-commit] make test-qemu FAILED — commit refused." >&2
+    echo "[pre-commit] fix the heartbeat or, for a doc-only commit," >&2
+    echo "[pre-commit] retry with: git commit --no-verify" >&2
+    exit 1
+fi
+
+echo "[pre-commit] heartbeat green — proceeding with commit" >&2
+exit 0
