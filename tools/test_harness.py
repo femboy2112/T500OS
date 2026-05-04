@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-# T500OS test harness — commit 2a placeholder.
+# T500OS test harness — commit 2b.
 #
-# Per docs/PLAN-v0.0.md commit 2a: this revision asserts only that the
-# build artifacts exist and that QEMU survived the 5-second window
-# without triple-faulting. Banner / serial / VGA / panic checks are
-# added in commits 2b, 3, 4, and 5 respectively.
+# Per docs/PLAN-v0.0.md commit 2b: this revision boots the ISO under QEMU
+# with COM1 captured to build/serial.log and asserts that the literal
+# string "T500OS v0.0" is present in the captured serial output. Build
+# artifacts are still verified to exist; full multi-line banner / VGA /
+# panic checks are added in commits 3, 4, and 5 respectively.
 #
 # Exit code: 0 on success, 1 on failure. CLAUDE.md §4 / DESIGN.md §26A.2
 # heartbeat: `make test-qemu` must exit 0 before any commit lands.
@@ -23,8 +24,14 @@ KERNEL_ELF = BUILD_DIR / "kernel.elf"
 KERNEL_MAP = BUILD_DIR / "kernel.map"
 ISO = BUILD_DIR / "t500os.iso"
 QEMU_LOG = BUILD_DIR / "qemu.log"
+SERIAL_LOG = BUILD_DIR / "serial.log"
 
 QEMU_TIMEOUT_SECONDS = 5
+
+# Banner contract (CLAUDE.md §3): the literal first line of the boot
+# banner. Commit 2b only checks for this prefix; commit 3 will assert the
+# full multi-line banner once printk lands.
+BANNER_LITERAL = "T500OS v0.0"
 
 # QEMU's -d int log spams INT lines for legitimate BIOS / GRUB activity
 # (real-mode INT 0x10 video, INT 0x13 disk). Those are not errors; do
@@ -60,14 +67,16 @@ def run_qemu() -> None:
         fail("qemu-system-x86_64 not found on PATH")
 
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
-    if QEMU_LOG.exists():
-        QEMU_LOG.unlink()
+    for stale in (QEMU_LOG, SERIAL_LOG):
+        if stale.exists():
+            stale.unlink()
 
     cmd = [
         qemu,
         "-cdrom", str(ISO),
         "-display", "none",
         "-no-reboot",
+        "-serial", f"file:{SERIAL_LOG}",
         "-d", "guest_errors",
         "-D", str(QEMU_LOG),
     ]
@@ -82,7 +91,9 @@ def run_qemu() -> None:
         )
     except subprocess.TimeoutExpired:
         # Expected: kernel halts in `cli; hlt; jmp .` and never exits on
-        # its own. The timeout means we got far enough to halt cleanly.
+        # its own. The timeout means we got far enough to halt cleanly;
+        # subprocess.run kills the child and waits, which closes QEMU's
+        # serial.log fd so the banner bytes are flushed.
         info(f"QEMU still running after {QEMU_TIMEOUT_SECONDS}s; treating "
              f"as clean halt (kernel_main spins on cli;hlt)")
     else:
@@ -104,11 +115,28 @@ def check_qemu_log() -> None:
     info(f"qemu.log clean ({QEMU_LOG.stat().st_size} bytes)")
 
 
+def check_serial_log() -> None:
+    if not SERIAL_LOG.is_file():
+        fail(f"missing serial capture: {SERIAL_LOG.relative_to(ROOT)}")
+    raw = SERIAL_LOG.read_bytes()
+    if not raw:
+        fail(f"empty serial capture: {SERIAL_LOG.relative_to(ROOT)}")
+    text = raw.decode("ascii", errors="replace")
+    if BANNER_LITERAL not in text:
+        sys.stderr.write("--- serial.log (decoded) ---\n")
+        sys.stderr.write(text)
+        sys.stderr.write("\n--- end serial.log ---\n")
+        fail(f"banner literal {BANNER_LITERAL!r} not found in serial.log")
+    info(f"serial.log contains banner literal {BANNER_LITERAL!r} "
+         f"({len(raw)} bytes captured)")
+
+
 def main() -> int:
     check_artifacts()
     run_qemu()
     check_qemu_log()
-    info("OK (commit 2a placeholder — banner assertions land in 2b)")
+    check_serial_log()
+    info("OK (commit 2b — banner first line asserted on serial)")
     return 0
 
 
