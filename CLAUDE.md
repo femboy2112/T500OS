@@ -172,6 +172,18 @@ should not be `stable_core`, that means it doesn't belong in v0.0.
 
 ---
 
+## 6A. Sandbox bootstrap
+
+Run `bash tools/setup.sh` before the first `make` in any fresh session.
+Do not `apt-get` individual packages — `tools/setup.sh` is the single
+canonical list of host build/test dependencies (build-essential, nasm,
+qemu-system-x86, grub-pc-bin, grub-common, xorriso, python3). Installing
+ad hoc subsets bit-rots the dependency list and produces sessions that
+silently differ from the documented one. If a needed package is missing
+from `tools/setup.sh`, add it there in the same commit that needs it.
+
+---
+
 ## 7. Anti-drift rules (hard)
 
 1. **Milestone gate:** do not begin v0.1 work until v0.0 done criteria pass

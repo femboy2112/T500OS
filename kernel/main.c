@@ -7,24 +7,28 @@
  * Owns:             v0.0 kernel entry point and the boot-banner emit
  *                   sequence (CLAUDE.md §3).
  * Mutates hardware: yes (clears IF and halts the CPU); also brings up
- *                   COM1 via serial_init (see kernel/serial.c). Every
- *                   printk byte is delivered to COM1 by serial_putc.
+ *                   COM1 via serial_init (see kernel/serial.c) and the
+ *                   80x25 VGA text framebuffer via vga_init (see
+ *                   kernel/vga.c). Every printk byte is delivered to COM1
+ *                   by serial_putc and to physical 0xB8000 by vga_putc.
  */
 
 /*
- * v0.0 commit 3 scope: bring up COM1, then emit the full multi-line boot
- * banner via printk. The banner literal must match CLAUDE.md §3 exactly so
- * that both the harness's serial assertion and the eventual VGA/serial
- * byte-identical check (commit 4) hold. VGA mirroring is still pending.
+ * v0.0 commit 4 scope: bring up COM1 and the legacy VGA text framebuffer,
+ * then emit the full multi-line boot banner via printk. printk tees every
+ * byte to both sinks (serial first), so the serial.log capture and the
+ * VGA pmemsave dump must be byte-identical (CLAUDE.md §3).
  */
 
 #include "kernel/serial.h"
+#include "kernel/vga.h"
 #include "kernel/printk.h"
 
 __attribute__((noreturn))
 void kernel_main(void)
 {
     serial_init();
+    vga_init();
 
     printk("T500OS v0.0\n");
     printk("Target: Lenovo ThinkPad T500\n");

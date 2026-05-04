@@ -37,7 +37,7 @@ LDFLAGS := -nostdlib -static -z noexecstack -z max-page-size=0x1000 \
            -T linker.ld -Map=$(KERNEL_MAP)
 ASFLAGS := -f elf64 -g -F dwarf
 
-C_SOURCES   := kernel/main.c kernel/serial.c kernel/printk.c \
+C_SOURCES   := kernel/main.c kernel/serial.c kernel/vga.c kernel/printk.c \
                kernel/libk/string.c
 ASM_SOURCES := boot/multiboot2.asm
 
