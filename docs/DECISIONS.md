@@ -106,7 +106,41 @@ new entry that supersedes the prior one.
   or exception handler.
 - **Status:** Accepted (v0.0 only)
 
+## D0006 — Host gcc version used for v0.0
+
+- **Topic:** Toolchain (record)
+- **Decision:** v0.0 was built and tested with the following host
+  toolchain on the development sandbox:
+
+  ```
+  gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+  ```
+
+  This is the version observed at commit 6 (artifact hardening) — the
+  first commit at which the harness gates the debug-symbol contract
+  in code via `check_artifacts()`. The freestanding flag set from D0002
+  (`-ffreestanding -fno-stack-protector -fno-pic -mno-red-zone -nostdlib`,
+  plus `-mno-mmx -mno-sse -mno-sse2 -mno-80387 -nostdinc -fno-builtin
+  -fno-asynchronous-unwind-tables` in the actual Makefile) is what makes
+  this host compiler acceptable for v0.0 per D0002 / DESIGN.md §25.2.
+- **Reason:** CLAUDE.md §6 requires that the host gcc version used for
+  v0.0 be documented in `docs/DECISIONS.md`. Recording the exact
+  version string lets a future contributor reproduce the v0.0 boot
+  artifact bit-for-similarly even before `tools/build_cross.sh` lands,
+  and gives D0002's revisit condition ("before v0.2") a concrete
+  baseline to compare against.
+- **Rejected alternatives:**
+  - Record only the major version ("gcc 13"). Loses the patch-level
+    information that matters when chasing a miscompile.
+  - Pin via Docker image now. The cross-compiler (D0002 revisit) is the
+    correct place to add reproducibility infrastructure; doing it here
+    would conflate "record what was used" with "guarantee what will be
+    used."
+- **Revisit condition:** Re-record at every milestone tag (v0.0,
+  v0.1, ...) until `tools/build_cross.sh` (D0002) replaces the host
+  gcc as the supported build toolchain.
+- **Status:** Accepted (v0.0 record)
+
 ---
 
-_Future entries: D0006 (host gcc version recorded at v0.0 close,
-commit 6); D0007 (v0.0 closure note, commit 7)._
+_Future entries: D0007 (v0.0 closure note, commit 7)._

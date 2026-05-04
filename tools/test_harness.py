@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-# T500OS test harness — commit 5.
+# T500OS test harness — commit 6.
 #
-# Per docs/PLAN-v0.0.md commit 5: the harness now takes --mode {boot,panic}.
+# Per docs/PLAN-v0.0.md commit 5: --mode {boot,panic}.
+# Per docs/PLAN-v0.0.md commit 6: check_artifacts() also verifies that
+# build/kernel.elf carries a `.debug_info` section (the v0.0 done-criteria
+# rule "kernel.elf has debug symbols", CLAUDE.md §2). The check uses
+# `readelf -S` rather than `objdump -h` because readelf ships in binutils
+# alongside `ld` and is already a hard dependency of the build.
 #
 #   boot mode (default):
 #     Same behavior as commit 4. Asserts the full multi-line boot banner
@@ -140,14 +145,43 @@ def info(msg: str) -> None:
     print(f"[harness] {msg}")
 
 
+def _elf_has_debug_info(elf: Path) -> bool:
+    """Return True iff `readelf -S` reports a `.debug_info` section in elf.
+
+    CLAUDE.md §2 requires `build/kernel.elf` to carry debug symbols.
+    `-g` is in CFLAGS/ASFLAGS and there is no strip step, but the only
+    way to *prove* the contract from the harness is to inspect the
+    produced ELF. readelf is part of binutils, which ships ld, so it is
+    already a hard build dependency."""
+    readelf = shutil.which("readelf")
+    if readelf is None:
+        fail("readelf not found on PATH (binutils missing?)")
+    proc = subprocess.run(
+        [readelf, "-S", str(elf)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if proc.returncode != 0:
+        sys.stderr.write(proc.stderr.decode(errors="replace"))
+        fail(f"readelf -S {elf} exited {proc.returncode}")
+    # Section names appear in the form `[ N] .debug_info  ...`. A bare
+    # substring match is sufficient and avoids parsing the full table;
+    # `.debug_info_alt` etc. would also satisfy the contract.
+    return b".debug_info" in proc.stdout
+
+
 def check_artifacts(paths: ModePaths) -> None:
     for path in (paths.kernel_elf, paths.kernel_map, paths.iso):
         if not path.is_file():
             fail(f"missing artifact: {path.relative_to(ROOT)}")
         if path.stat().st_size == 0:
             fail(f"empty artifact: {path.relative_to(ROOT)}")
+    if not _elf_has_debug_info(paths.kernel_elf):
+        fail(f"{paths.kernel_elf.relative_to(ROOT)} has no .debug_info "
+             f"section — debug symbols missing (CLAUDE.md §2)")
     info(f"artifacts present: {paths.kernel_elf.name}, "
-         f"{paths.kernel_map.name}, {paths.iso.name}")
+         f"{paths.kernel_map.name}, {paths.iso.name} "
+         f"(.debug_info verified)")
 
 
 def _resolve_qemu() -> str:

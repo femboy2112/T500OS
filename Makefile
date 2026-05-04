@@ -10,11 +10,19 @@
 #   test-panic  — build a -DT500_PANIC_TEST variant ISO and run the
 #                 harness in panic mode to verify the halt path
 #   debug       — boot with QEMU paused for gdb on tcp::1234
+#   hooks-install — point this clone's git hooks at .githooks/ (idempotent)
 #
 # v0.0 may use the host gcc per D0002 / DESIGN.md §25.2 provided strict
 # freestanding flags are used. -Werror is v0.0-only per D0005; v0.1 will
 # revisit it once IRQ stubs land. None of the targets here write to disk
 # images, host disks, or block devices (CLAUDE.md §7 disk-write rule).
+#
+# Debug symbols (CLAUDE.md §2 / docs/PLAN-v0.0.md commit 6): -g flows into
+# every kernel object via CFLAGS and ASFLAGS below; the link line passes
+# --Map=$(KERNEL_MAP) (and --Map=$(PANIC_KERNEL_MAP) for the panic
+# variant) so build/kernel.map is produced as a side effect of ld; there
+# is no strip step anywhere. The harness re-asserts these contracts via
+# check_artifacts() before launching QEMU.
 
 CC      ?= gcc
 LD      ?= ld
@@ -65,7 +73,7 @@ PANIC_CFLAGS  := $(CFLAGS) -DT500_PANIC_TEST
 PANIC_LDFLAGS := -nostdlib -static -z noexecstack -z max-page-size=0x1000 \
                  -T linker.ld -Map=$(PANIC_KERNEL_MAP)
 
-.PHONY: all clean iso run run-serial test-qemu test-panic debug
+.PHONY: all clean iso run run-serial test-qemu test-panic debug hooks-install
 .DEFAULT_GOAL := all
 
 all: $(KERNEL_ELF)
@@ -134,3 +142,12 @@ debug: $(ISO)
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+# Point this clone's git hooks at the tracked .githooks/ directory so the
+# pre-commit heartbeat gate is active. `git config core.hooksPath` is
+# idempotent — re-running just rewrites the same value, so this target
+# is safe to re-invoke after `git clone` or after switching worktrees.
+hooks-install:
+	git config core.hooksPath .githooks
+	@echo "[hooks-install] core.hooksPath -> .githooks"
+	@echo "[hooks-install] active hooks: $$(ls .githooks 2>/dev/null | tr '\n' ' ')"
