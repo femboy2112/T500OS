@@ -14,15 +14,17 @@
  */
 
 /*
- * v0.0 commit 4 scope: bring up COM1 and the legacy VGA text framebuffer,
- * then emit the full multi-line boot banner via printk. printk tees every
- * byte to both sinks (serial first), so the serial.log capture and the
- * VGA pmemsave dump must be byte-identical (CLAUDE.md §3).
+ * v0.0 commit 5 scope: same boot path as commit 4 (serial up, VGA up,
+ * banner emitted via printk), plus a build-time gate T500_PANIC_TEST that
+ * triggers a deterministic panic right after the banner so the harness
+ * can verify the halt block on both sinks. The default (non-panic-test)
+ * ISO behavior is unchanged.
  */
 
 #include "kernel/serial.h"
 #include "kernel/vga.h"
 #include "kernel/printk.h"
+#include "kernel/panic.h"
 
 __attribute__((noreturn))
 void kernel_main(void)
@@ -40,6 +42,14 @@ void kernel_main(void)
     printk("Memory map: initializing\n");
     printk("\n");
     printk("T5L prompt pending...\n");
+
+#ifdef T500_PANIC_TEST
+    /* Build-time gate per docs/PLAN-v0.0.md commit 5. The panic-test ISO
+     * fires panic() immediately after the banner so the harness can prove
+     * the halt path on both serial and VGA without altering normal-boot
+     * behavior. The default ISO never defines T500_PANIC_TEST. */
+    panic("boot.test", "panic-test build");
+#endif
 
     for (;;) {
         __asm__ volatile ("cli; hlt");
