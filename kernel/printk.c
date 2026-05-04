@@ -9,14 +9,18 @@
  *                   own their string lifetimes. Returns the count of
  *                   characters emitted.
  * Owns:             format-string interpretation and output routing for
- *                   v0.0. Routes only to serial; VGA mirroring lands in
- *                   commit 4 (CLAUDE.md §3 byte-identical rule).
+ *                   v0.0. Tees every emitted byte to both COM1 and the
+ *                   80x25 legacy VGA text framebuffer. Serial is written
+ *                   first per DESIGN.md §11.3 (serial-first principle) so
+ *                   that an early hang during VGA writes still shows the
+ *                   character on the wire.
  * Mutates hardware: indirectly — every emitted byte goes to COM1 via
- *                   serial_putc.
+ *                   serial_putc and to physical 0xB8000 via vga_putc.
  */
 
 #include "kernel/printk.h"
 #include "kernel/serial.h"
+#include "kernel/vga.h"
 #include "kernel/libk.h"
 
 typedef __UINT64_TYPE__  uint64_t;
@@ -32,7 +36,12 @@ typedef __UINTPTR_TYPE__ uintptr_t;
 
 static void emit_char(char c, int *count)
 {
+    /* Serial first: if VGA hangs (unlikely on a memory-mapped framebuffer,
+     * but the principle survives once real CRTC pokes show up later) the
+     * byte has at least made it to the wire. CLAUDE.md §3 requires the
+     * two sinks to be byte-identical. */
     serial_putc(c);
+    vga_putc(c);
     (*count)++;
 }
 
