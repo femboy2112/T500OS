@@ -47,16 +47,19 @@ seven labelled lines and `T5L prompt pending...`. **Serial copy
 byte-identical to VGA copy** where charset allows.
 
 **Done criteria** (CLAUDE.md §2 / DESIGN.md §30.1):
-1. `make iso` succeeds
-2. `make run` boots in QEMU
-3. VGA shows banner
-4. `serial.log` from harness contains banner
-5. `panic()` halts visibly on both
-6. `build/kernel.elf` has debug symbols
-7. `build/kernel.map` exists
-8. `make test-qemu` exits 0
+1. [x] `make iso` succeeds
+2. [x] `make run` boots in QEMU
+3. [x] VGA shows banner
+4. [x] `serial.log` from harness contains banner
+5. [x] `panic()` halts visibly on both
+6. [x] `build/kernel.elf` has debug symbols
+7. [x] `build/kernel.map` exists
+8. [x] `make test-qemu` exits 0
 
-When all eight pass: tag `v0.0-boot-banner`. Stop. Do not start v0.1.
+All eight done criteria are satisfied as of commit 7. The annotated tag
+`v0.0-boot-banner` is applied on the merge commit that closes commit 7's
+PR into `main`. v0.1 work is gated behind a fresh planning round per
+D0007.
 
 ## Resolved doctrine-vs-repo conflicts
 

@@ -141,6 +141,44 @@ new entry that supersedes the prior one.
   gcc as the supported build toolchain.
 - **Status:** Accepted (v0.0 record)
 
+## D0007 — v0.0 milestone closure
+
+- **Topic:** Milestone closure
+- **Decision:** v0.0 milestone complete; `v0.0-boot-banner` tag applied.
+- **Reason:** All 8 done criteria from CLAUDE.md §2 / DESIGN.md §30.1
+  pass: `make iso` succeeds; `make run` boots in QEMU; VGA shows the
+  banner; `serial.log` from the harness contains the banner;
+  `panic()` halts visibly on both serial and VGA (verified by
+  `make test-panic`); `build/kernel.elf` carries `.debug_info`;
+  `build/kernel.map` is non-empty; `make test-qemu` exits 0.
+  Both heartbeats — `make test-qemu` and `make test-panic` — were
+  re-run green immediately before the closure commit. The annotated
+  tag is applied on `main` after the commit-7 PR merges; per
+  CLAUDE.md §9, milestone tags live on `main` and not on feature
+  branches.
+- **Rejected alternatives:**
+  - Continuing into v0.1 work without a fresh planning round.
+    CLAUDE.md §11.1 (milestone gate) and §2 ("do not volunteer to
+    start v0.1 in the same session") explicitly forbid rolling into
+    v0.1 from the same session that closed v0.0; jumping straight
+    into IDT / IRQ / shell work without a v0.1 plan-of-record would
+    repeat the drift mode that the v0.0 commit plan was created to
+    prevent.
+  - Tagging on the feature branch `claude/v00-closure-DzfGo`
+    instead of `main`. Tags on short-lived feature branches get
+    orphaned if the branch is later deleted; the tag belongs on the
+    merge commit that lands the closure on `main`.
+  - Closing v0.0 without re-running the heartbeats. The doc-only
+    nature of commit 7 lets the commit itself skip
+    `make test-qemu`, but applying a milestone tag without first
+    proving the tree is green at the tag point would defeat the
+    purpose of the heartbeat contract (CLAUDE.md §4).
+- **Revisit condition:** v0.1 planning round opens (the
+  `plan/v0.1` branch with a `docs/PLAN-v0.1.md` analogous to the
+  v0.0 plan, gated by a separate operator-approved planning PR
+  before any v0.1 implementation commits land).
+- **Status:** Accepted
+
 ---
 
-_Future entries: D0007 (v0.0 closure note, commit 7)._
+_Future entries: D0008+ recorded as they arise._
