@@ -23,7 +23,6 @@ KERNEL_ELF = BUILD_DIR / "kernel.elf"
 KERNEL_MAP = BUILD_DIR / "kernel.map"
 ISO = BUILD_DIR / "t500os.iso"
 QEMU_LOG = BUILD_DIR / "qemu.log"
-SERIAL_LOG = BUILD_DIR / "serial.log"
 
 QEMU_TIMEOUT_SECONDS = 5
 
@@ -61,8 +60,6 @@ def run_qemu() -> None:
         fail("qemu-system-x86_64 not found on PATH")
 
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
-    if SERIAL_LOG.exists():
-        SERIAL_LOG.unlink()
     if QEMU_LOG.exists():
         QEMU_LOG.unlink()
 
@@ -71,7 +68,6 @@ def run_qemu() -> None:
         "-cdrom", str(ISO),
         "-display", "none",
         "-no-reboot",
-        "-serial", f"file:{SERIAL_LOG}",
         "-d", "guest_errors",
         "-D", str(QEMU_LOG),
     ]
